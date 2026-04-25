@@ -15,6 +15,8 @@ import { useTranslation } from 'react-i18next'
 import { NotesPage } from './pages/NotesPage'
 import { ChatPage } from './pages/ChatPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { FloatingCat } from './components/FloatingCat'
+import { CatStateProvider } from './components/CatStateContext'
 import './theme/ionic.css'
 import './App.css'
 
@@ -26,27 +28,31 @@ function App() {
   return (
     <IonApp>
       <IonReactRouter>
-        <IonTabs>
-          <IonRouterOutlet>
-            <Route exact path="/notes" component={NotesPage} />
-            <Route exact path="/chat" component={ChatPage} />
-            <Route exact path="/settings" component={SettingsPage} />
-            <Route exact path="/">
-              <Redirect to="/notes" />
-            </Route>
-          </IonRouterOutlet>
+        <CatStateProvider>
+          <IonTabs>
+            <FloatingCat />
 
-          <IonTabBar slot="bottom">
-            <IonTabButton tab="notes" href="/notes">
-              <IonIcon icon={documentTextOutline} />
-              <IonLabel>{t('tabs.notes')}</IonLabel>
-            </IonTabButton>
-            <IonTabButton tab="chat" href="/chat">
-              <IonIcon icon={chatbubblesOutline} />
-              <IonLabel>{t('tabs.chat')}</IonLabel>
-            </IonTabButton>
-          </IonTabBar>
-        </IonTabs>
+            <IonRouterOutlet>
+              <Route exact path="/notes" component={NotesPage} />
+              <Route exact path="/chat" component={ChatPage} />
+              <Route exact path="/settings" component={SettingsPage} />
+              <Route exact path="/">
+                <Redirect to="/notes" />
+              </Route>
+            </IonRouterOutlet>
+
+            <IonTabBar slot="bottom">
+              <IonTabButton tab="notes" href="/notes">
+                <IonIcon icon={documentTextOutline} />
+                <IonLabel>{t('tabs.notes')}</IonLabel>
+              </IonTabButton>
+              <IonTabButton tab="chat" href="/chat">
+                <IonIcon icon={chatbubblesOutline} />
+                <IonLabel>{t('tabs.chat')}</IonLabel>
+              </IonTabButton>
+            </IonTabBar>
+          </IonTabs>
+        </CatStateProvider>
       </IonReactRouter>
     </IonApp>
   )

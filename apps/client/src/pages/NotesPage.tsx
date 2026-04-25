@@ -11,19 +11,22 @@
 } from '@ionic/react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useCatState } from '../components/catState'
 import { PageHeader } from '../components/PageHeader'
-import { TopCatBanner } from '../components/TopCatBanner'
 import { aiService } from '../services/aiService'
 import { notesService } from '../services/notesService'
 import type { Note } from '../types/note'
+import type { RecognitionWindow } from '../types/speechRecognition'
 
 export function NotesPage() {
   const { t, i18n } = useTranslation()
+  const { setActivity } = useCatState()
   const [notes, setNotes] = useState<Note[]>(() => notesService.list())
   const [selectedId, setSelectedId] = useState<string | null>(notes[0]?.id ?? null)
   const [viewMode, setViewMode] = useState<'processed' | 'original'>('processed')
   const [isProcessing, setIsProcessing] = useState(false)
   const [processError, setProcessError] = useState('')
+  const [voiceState, setVoiceState] = useState('')
 
   const selectedNote = useMemo(
     () => notes.find((note) => note.id === selectedId) ?? null,
@@ -66,6 +69,58 @@ export function NotesPage() {
 
     const nextNotes = notesService.remove(selectedNote.id)
     refreshSelection(nextNotes)
+  }
+
+  function startVoiceInput() {
+    const recognitionWindow = window as RecognitionWindow
+    const SpeechRecognitionCtor =
+      recognitionWindow.SpeechRecognition ?? recognitionWindow.webkitSpeechRecognition
+
+    if (!SpeechRecognitionCtor) {
+      setActivity('idle')
+      setVoiceState(t('notes.voiceUnsupported'))
+      return
+    }
+
+    const language: 'ru' | 'en' = i18n.language === 'en' ? 'en' : 'ru'
+    const activeNote = selectedNote ?? notesService.createDraft(language)
+    refreshSelection(notesService.list(), activeNote.id)
+
+    const recognition = new SpeechRecognitionCtor()
+    recognition.lang = language === 'en' ? 'en-US' : 'ru-RU'
+    recognition.interimResults = false
+    recognition.maxAlternatives = 1
+
+    setActivity('writing')
+    setVoiceState(t('notes.voiceWriting'))
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0]?.[0]?.transcript ?? ''
+      if (transcript) {
+        const currentNote = notesService.list().find((note) => note.id === activeNote.id) ?? activeNote
+        const nextText = currentNote.originalText.trim()
+          ? `${currentNote.originalText.trim()} ${transcript}`
+          : transcript
+
+        notesService.updateDraftContent(currentNote, nextText)
+        refreshSelection(notesService.list(), activeNote.id)
+        setViewMode('original')
+      }
+
+      setActivity('idle')
+      setVoiceState(t('notes.voiceReady'))
+    }
+
+    recognition.onerror = () => {
+      setActivity('idle')
+      setVoiceState(t('notes.voiceError'))
+    }
+
+    recognition.onend = () => {
+      setActivity('idle')
+    }
+
+    recognition.start()
   }
 
   async function processCurrentNote() {
@@ -112,17 +167,16 @@ export function NotesPage() {
       <PageHeader title={t('pages.notesTitle')} />
       <IonContent fullscreen className="ion-padding">
         <div className="screen-stack">
-          <TopCatBanner />
-
           <div className="section-card">
             <h2>{t('pages.notesTitle')}</h2>
             <p className="muted">{t('pages.notesSubtitle')}</p>
             <div className="button-row">
               <IonButton onClick={createNote}>{t('notes.newNote')}</IonButton>
-              <IonButton fill="outline" disabled>
-                {t('notes.voiceInputSoon')}
+              <IonButton fill="outline" onClick={startVoiceInput}>
+                {t('notes.voiceInput')}
               </IonButton>
             </div>
+            {voiceState ? <IonText color="medium">{voiceState}</IonText> : null}
           </div>
 
           <div className="section-card">

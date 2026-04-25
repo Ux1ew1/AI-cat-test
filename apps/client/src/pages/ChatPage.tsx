@@ -14,33 +14,18 @@
   IonToolbar,
 } from '@ionic/react'
 import { menuOutline, settingsOutline } from 'ionicons/icons'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { TopCatBanner } from '../components/TopCatBanner'
+import { useCatState } from '../components/catState'
 import { chatService } from '../services/chatService'
 import type { Chat, Message, MessageSourceType } from '../types/chat'
-
-type RecognitionWindow = Window & {
-  SpeechRecognition?: new () => {
-    lang: string
-    interimResults: boolean
-    maxAlternatives: number
-    start: () => void
-    onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null
-    onerror: (() => void) | null
-  }
-  webkitSpeechRecognition?: new () => {
-    lang: string
-    interimResults: boolean
-    maxAlternatives: number
-    start: () => void
-    onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null
-    onerror: (() => void) | null
-  }
-}
+import type { RecognitionWindow } from '../types/speechRecognition'
 
 export function ChatPage() {
   const { t, i18n } = useTranslation()
+  const { setActivity } = useCatState()
+  const composerRef = useRef<HTMLIonTextareaElement>(null)
   const [chats, setChats] = useState<Chat[]>(() => chatService.listChats())
   const [selectedChatId, setSelectedChatId] = useState<string | null>(chats[0]?.id ?? null)
   const [, forceMessagesRefresh] = useState(0)
@@ -49,12 +34,37 @@ export function ChatPage() {
   const [sendError, setSendError] = useState('')
   const [voiceState, setVoiceState] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [activeMenu, setActiveMenu] = useState<{
+    chat: Chat
+    top: number
+    right: number
+  } | null>(null)
 
   const selectedChat = useMemo(
     () => chats.find((chat) => chat.id === selectedChatId) ?? null,
     [chats, selectedChatId],
   )
   const messages = selectedChatId ? chatService.listMessages(selectedChatId) : []
+
+  useEffect(() => {
+    if (!activeMenu) {
+      return
+    }
+
+    function closeMenu() {
+      setActiveMenu(null)
+    }
+
+    window.addEventListener('click', closeMenu)
+    window.addEventListener('resize', closeMenu)
+    window.addEventListener('scroll', closeMenu, true)
+
+    return () => {
+      window.removeEventListener('click', closeMenu)
+      window.removeEventListener('resize', closeMenu)
+      window.removeEventListener('scroll', closeMenu, true)
+    }
+  }, [activeMenu])
 
   function refreshChats(fallbackId?: string | null) {
     const nextChats = chatService.listChats()
@@ -101,7 +111,21 @@ export function ChatPage() {
     }
 
     chatService.deleteChat(chat.id)
+    setActiveMenu(null)
     refreshChats()
+  }
+
+  function openChatMenu(chat: Chat, target: HTMLElement) {
+    const rect = target.getBoundingClientRect()
+    setActiveMenu((current) =>
+      current?.chat.id === chat.id
+        ? null
+        : {
+          chat,
+          top: rect.bottom + 4,
+          right: Math.max(8, window.innerWidth - rect.right),
+        },
+    )
   }
 
   async function sendMessage(sourceType: MessageSourceType) {
@@ -149,6 +173,9 @@ export function ChatPage() {
       setSendError(error instanceof Error ? error.message : t('chat.sendFailed'))
     } finally {
       setIsSending(false)
+      window.requestAnimationFrame(() => {
+        void composerRef.current?.setFocus()
+      })
     }
   }
 
@@ -186,6 +213,7 @@ export function ChatPage() {
       recognitionWindow.SpeechRecognition ?? recognitionWindow.webkitSpeechRecognition
 
     if (!SpeechRecognitionCtor) {
+      setActivity('idle')
       setVoiceState(t('chat.voiceUnsupported'))
       return
     }
@@ -195,6 +223,7 @@ export function ChatPage() {
     recognition.interimResults = false
     recognition.maxAlternatives = 1
 
+    setActivity('listening')
     setVoiceState(t('chat.voiceListening'))
 
     recognition.onresult = (event) => {
@@ -202,14 +231,29 @@ export function ChatPage() {
       if (transcript) {
         setComposerText((previous) => (previous ? `${previous} ${transcript}` : transcript))
       }
+      setActivity('idle')
       setVoiceState(t('chat.voiceReady'))
     }
 
     recognition.onerror = () => {
+      setActivity('idle')
       setVoiceState(t('chat.voiceError'))
     }
 
+    recognition.onend = () => {
+      setActivity('idle')
+    }
+
     recognition.start()
+  }
+
+  function handleComposerKeyDown(event: KeyboardEvent<HTMLIonTextareaElement>) {
+    if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) {
+      return
+    }
+
+    event.preventDefault()
+    void sendMessage('text')
   }
 
   return (
@@ -261,17 +305,14 @@ export function ChatPage() {
                   </IonLabel>
 
                   <div className="chat-actions-dropdown" onClick={(event) => event.stopPropagation()}>
-                    <details>
-                      <summary aria-label={t('chat.actionsLabel')}>⋯</summary>
-                      <div className="chat-actions-dropdown__menu">
-                        <button type="button" onClick={() => renameChat(chat)}>
-                          {t('chat.rename')}
-                        </button>
-                        <button type="button" className="is-danger" onClick={() => deleteChat(chat)}>
-                          {t('chat.delete')}
-                        </button>
-                      </div>
-                    </details>
+                    <button
+                      type="button"
+                      className="chat-actions-dropdown__trigger"
+                      aria-label={t('chat.actionsLabel')}
+                      onClick={(event) => openChatMenu(chat, event.currentTarget)}
+                    >
+                      ⋯
+                    </button>
                   </div>
                 </IonItem>
               ))
@@ -280,10 +321,8 @@ export function ChatPage() {
         </aside>
 
         <div className="chat-main-column">
-          <IonContent fullscreen className="ion-padding chat-content-area">
+          <IonContent className="ion-padding chat-content-area">
             <div className="screen-stack">
-              <TopCatBanner />
-
               {!selectedChat ? (
                 <div className="section-card">
                   <p className="muted">{t('chat.emptyChats')}</p>
@@ -321,10 +360,12 @@ export function ChatPage() {
           <div className="chat-composer-docked">
             <div className="chat-composer">
               <IonTextarea
+                ref={composerRef}
                 value={composerText}
                 autoGrow
                 rows={2}
                 placeholder={t('chat.messageInput')}
+                onKeyDown={handleComposerKeyDown}
                 onIonInput={(event) => {
                   setComposerText(String(event.detail.value ?? ''))
                 }}
@@ -348,6 +389,31 @@ export function ChatPage() {
           </div>
         </div>
       </div>
+
+      {activeMenu ? (
+        <div
+          className="chat-actions-dropdown__menu"
+          style={{ top: activeMenu.top, right: activeMenu.right }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              renameChat(activeMenu.chat)
+              setActiveMenu(null)
+            }}
+          >
+            {t('chat.rename')}
+          </button>
+          <button
+            type="button"
+            className="is-danger"
+            onClick={() => deleteChat(activeMenu.chat)}
+          >
+            {t('chat.delete')}
+          </button>
+        </div>
+      ) : null}
     </IonPage>
   )
 }
