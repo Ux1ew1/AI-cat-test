@@ -13,7 +13,7 @@
   IonTitle,
   IonToolbar,
 } from '@ionic/react'
-import { menuOutline, settingsOutline } from 'ionicons/icons'
+import { micOutline, paperPlaneOutline, menuOutline, settingsOutline } from 'ionicons/icons'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -26,6 +26,11 @@ export function ChatPage() {
   const { t, i18n } = useTranslation()
   const { setActivity } = useCatState()
   const composerRef = useRef<HTMLIonTextareaElement>(null)
+  const typingTimeoutRef = useRef<number | null>(null)
+  const recognitionWindow = window as RecognitionWindow
+  const SpeechRecognitionCtor =
+    recognitionWindow.SpeechRecognition ?? recognitionWindow.webkitSpeechRecognition
+  const isSpeechRecognitionSupported = Boolean(SpeechRecognitionCtor)
   const [chats, setChats] = useState<Chat[]>(() => chatService.listChats())
   const [selectedChatId, setSelectedChatId] = useState<string | null>(chats[0]?.id ?? null)
   const [, forceMessagesRefresh] = useState(0)
@@ -33,6 +38,7 @@ export function ChatPage() {
   const [isSending, setIsSending] = useState(false)
   const [sendError, setSendError] = useState('')
   const [voiceState, setVoiceState] = useState('')
+  const [isMicActive, setIsMicActive] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [activeMenu, setActiveMenu] = useState<{
     chat: Chat
@@ -65,6 +71,12 @@ export function ChatPage() {
       window.removeEventListener('scroll', closeMenu, true)
     }
   }, [activeMenu])
+
+  useEffect(() => () => {
+    if (typingTimeoutRef.current) {
+      window.clearTimeout(typingTimeoutRef.current)
+    }
+  }, [])
 
   function refreshChats(fallbackId?: string | null) {
     const nextChats = chatService.listChats()
@@ -208,12 +220,9 @@ export function ChatPage() {
   }
 
   function startVoiceInput() {
-    const recognitionWindow = window as RecognitionWindow
-    const SpeechRecognitionCtor =
-      recognitionWindow.SpeechRecognition ?? recognitionWindow.webkitSpeechRecognition
-
     if (!SpeechRecognitionCtor) {
       setActivity('idle')
+      setIsMicActive(false)
       setVoiceState(t('chat.voiceUnsupported'))
       return
     }
@@ -224,6 +233,7 @@ export function ChatPage() {
     recognition.maxAlternatives = 1
 
     setActivity('listening')
+    setIsMicActive(true)
     setVoiceState(t('chat.voiceListening'))
 
     recognition.onresult = (event) => {
@@ -232,19 +242,34 @@ export function ChatPage() {
         setComposerText((previous) => (previous ? `${previous} ${transcript}` : transcript))
       }
       setActivity('idle')
+      setIsMicActive(false)
       setVoiceState(t('chat.voiceReady'))
     }
 
     recognition.onerror = () => {
       setActivity('idle')
+      setIsMicActive(false)
       setVoiceState(t('chat.voiceError'))
     }
 
     recognition.onend = () => {
       setActivity('idle')
+      setIsMicActive(false)
     }
 
     recognition.start()
+  }
+
+  function markCatTyping() {
+    if (typingTimeoutRef.current) {
+      window.clearTimeout(typingTimeoutRef.current)
+    }
+
+    setActivity('listening')
+    typingTimeoutRef.current = window.setTimeout(() => {
+      setActivity('idle')
+      typingTimeoutRef.current = null
+    }, 700)
   }
 
   function handleComposerKeyDown(event: KeyboardEvent<HTMLIonTextareaElement>) {
@@ -285,9 +310,7 @@ export function ChatPage() {
 
           <IonList inset>
             {chats.length === 0 ? (
-              <IonItem lines="none">
-                <IonLabel>{t('chat.emptyChats')}</IonLabel>
-              </IonItem>
+              null
             ) : (
               chats.map((chat) => (
                 <IonItem
@@ -301,7 +324,6 @@ export function ChatPage() {
                 >
                   <IonLabel>
                     <h3>{chat.title}</h3>
-                    <p>{chat.lastMessagePreview || t('chat.noMessages')}</p>
                   </IonLabel>
 
                   <div className="chat-actions-dropdown" onClick={(event) => event.stopPropagation()}>
@@ -324,15 +346,12 @@ export function ChatPage() {
           <IonContent className="ion-padding chat-content-area">
             <div className="screen-stack">
               {!selectedChat ? (
-                <div className="section-card">
+                <div className="chat-empty-state">
                   <p className="muted">{t('chat.emptyChats')}</p>
-                  <div className="button-row">
-                    <IonButton onClick={createChat}>{t('chat.newChat')}</IonButton>
-                  </div>
+                  <IonButton onClick={createChat}>{t('chat.newChat')}</IonButton>
                 </div>
-              ) : null}
-
-              <div className="chat-messages-card">
+              ) : (
+                <div className="chat-messages-card">
                 {messages.length === 0 ? (
                   <p className="muted">{t('chat.emptyMessages')}</p>
                 ) : (
@@ -350,7 +369,8 @@ export function ChatPage() {
                     </div>
                   ))
                 )}
-              </div>
+                </div>
+              )}
 
               {voiceState ? <IonText color="medium">{voiceState}</IonText> : null}
               {sendError ? <IonText color="danger">{sendError}</IonText> : null}
@@ -368,21 +388,31 @@ export function ChatPage() {
                 onKeyDown={handleComposerKeyDown}
                 onIonInput={(event) => {
                   setComposerText(String(event.detail.value ?? ''))
+                  markCatTyping()
                 }}
               />
-              <div className="button-row">
-                <IonButton disabled={isSending || !composerText.trim()} onClick={() => sendMessage('text')}>
-                  {isSending ? t('chat.sending') : t('chat.send')}
-                </IonButton>
-                <IonButton fill="outline" disabled={isSending} onClick={startVoiceInput}>
-                  {t('chat.voiceToText')}
+              <div className="chat-composer__actions">
+                <IonButton
+                  className={`chat-composer__icon-button ${isMicActive ? 'is-recording' : ''}`}
+                  fill="clear"
+                  disabled={isSending || !isSpeechRecognitionSupported}
+                  aria-label={
+                    isSpeechRecognitionSupported
+                      ? isMicActive ? t('chat.stopVoice') : t('chat.voiceToText')
+                      : t('chat.voiceUnsupported')
+                  }
+                  onClick={startVoiceInput}
+                >
+                  <IonIcon slot="icon-only" icon={micOutline} />
                 </IonButton>
                 <IonButton
+                  className="chat-composer__icon-button"
                   fill="clear"
                   disabled={isSending || !composerText.trim()}
-                  onClick={() => sendMessage('voice')}
+                  aria-label={isSending ? t('chat.sending') : t('chat.send')}
+                  onClick={() => sendMessage('text')}
                 >
-                  {t('chat.sendAsVoice')}
+                  <IonIcon slot="icon-only" icon={paperPlaneOutline} />
                 </IonButton>
               </div>
             </div>
