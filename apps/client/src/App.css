@@ -1,0 +1,241 @@
+.screen-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.top-cat-banner {
+  margin: 0 auto;
+  width: min(640px, 100%);
+  border-radius: 28px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: linear-gradient(135deg, #f4ead8 0%, #e8d4bd 100%);
+  border: 1px dashed #b58d66;
+  text-align: center;
+}
+
+.top-cat-banner__icon {
+  font-size: 20px;
+  font-weight: 700;
+  color: #7a5333;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.section-card {
+  border-radius: 24px;
+  padding: 16px;
+  background: var(--ion-color-light);
+  border: 1px solid rgba(152, 124, 96, 0.25);
+}
+
+.cat-placeholder {
+  border-radius: 24px;
+  padding: 14px;
+  background: linear-gradient(135deg, #f4ead8 0%, #e8d4bd 100%);
+  border: 1px dashed #b58d66;
+}
+
+.muted {
+  color: var(--ion-color-medium);
+  margin: 0;
+}
+
+.preview-block {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+}
+
+.chat-page-layout {
+  display: flex;
+  min-height: calc(100dvh - 112px);
+  height: calc(100dvh - 112px);
+  overflow: hidden;
+}
+
+.chat-history-panel {
+  width: 0;
+  overflow: hidden;
+  transition: width 0.25s ease;
+  border-right: 1px solid rgba(152, 124, 96, 0.25);
+  background: #fffaf3;
+  position: relative;
+  z-index: 40;
+}
+
+.chat-page-layout.is-sidebar-open .chat-history-panel {
+  width: 320px;
+  overflow: visible;
+}
+
+.chat-history-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px;
+}
+
+.chat-history-panel ion-list {
+  overflow: visible;
+}
+
+.chat-main-column {
+  flex: 1;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.chat-content-area {
+  --padding-bottom: 16px;
+  height: 100%;
+}
+
+.chat-messages-card {
+  background: #fff;
+  border: 1px solid rgba(152, 124, 96, 0.25);
+  border-radius: 24px;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.chat-message {
+  padding: 10px 12px;
+  border-radius: 18px;
+  max-width: 90%;
+}
+
+.chat-message.is-user {
+  justify-self: end;
+  background: #f4ead8;
+}
+
+.chat-message.is-assistant {
+  justify-self: start;
+  background: #fff7eb;
+  border: 1px solid rgba(152, 124, 96, 0.25);
+}
+
+.chat-message__meta {
+  font-size: 12px;
+  color: #7d6d5f;
+  margin-bottom: 4px;
+}
+
+.chat-message__body {
+  white-space: pre-wrap;
+}
+
+.chat-composer {
+  padding: 10px 12px;
+  display: grid;
+  gap: 8px;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  background: #fff7eb;
+}
+
+.chat-composer-docked {
+  flex-shrink: 0;
+  border-top: 1px solid rgba(152, 124, 96, 0.25);
+  background: #fffaf3;
+  padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+}
+
+.chat-history-panel .item,
+.chat-history-panel ion-item {
+  --border-radius: 16px;
+  border-radius: 16px;
+  margin-bottom: 6px;
+  overflow: visible;
+}
+
+.chat-actions-dropdown details {
+  position: relative;
+  z-index: 60;
+}
+
+.chat-actions-dropdown summary {
+  list-style: none;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 12px;
+}
+
+.chat-actions-dropdown summary::-webkit-details-marker {
+  display: none;
+}
+
+.chat-actions-dropdown__menu {
+  position: absolute;
+  right: 0;
+  top: 28px;
+  min-width: 160px;
+  background: #fff;
+  border: 1px solid rgba(152, 124, 96, 0.25);
+  border-radius: 14px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.14);
+  overflow: hidden;
+  z-index: 120;
+}
+
+.chat-actions-dropdown__menu button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.chat-actions-dropdown__menu button:hover {
+  background: #f8efe1;
+}
+
+.chat-actions-dropdown__menu button.is-danger {
+  color: #c43a3a;
+}
+
+ion-button {
+  --border-radius: 16px;
+}
+
+@media (max-width: 992px) {
+  .chat-page-layout {
+    min-height: calc(100dvh - 112px);
+    height: calc(100dvh - 112px);
+  }
+
+  .chat-page-layout.is-sidebar-open .chat-history-panel {
+    position: fixed;
+    top: 56px;
+    left: 0;
+    height: calc(100dvh - 112px);
+    z-index: 30;
+    width: 84vw;
+    max-width: 320px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+  }
+
+  .chat-history-panel {
+    position: fixed;
+    top: 56px;
+    left: 0;
+    height: calc(100dvh - 112px);
+    width: 0;
+    z-index: 30;
+  }
+}

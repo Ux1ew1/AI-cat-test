@@ -1,0 +1,33 @@
+﻿@import '@ionic/react/css/core.css';
+@import '@ionic/react/css/normalize.css';
+@import '@ionic/react/css/structure.css';
+@import '@ionic/react/css/typography.css';
+@import '@ionic/react/css/padding.css';
+@import '@ionic/react/css/float-elements.css';
+@import '@ionic/react/css/text-alignment.css';
+@import '@ionic/react/css/text-transformation.css';
+@import '@ionic/react/css/flex-utils.css';
+@import '@ionic/react/css/display.css';
+
+:root {
+  --ion-color-primary: #9f6b3e;
+  --ion-color-primary-rgb: 159, 107, 62;
+  --ion-color-primary-contrast: #ffffff;
+  --ion-color-primary-shade: #8c5f37;
+  --ion-color-primary-tint: #a97851;
+
+  --ion-color-light: #f8efe1;
+  --ion-color-light-rgb: 248, 239, 225;
+  --ion-color-light-contrast: #4d2f1f;
+  --ion-color-light-shade: #dad2c6;
+  --ion-color-light-tint: #f9f1e4;
+
+  --ion-color-medium: #7d6d5f;
+  --ion-color-medium-rgb: 125, 109, 95;
+
+  --ion-background-color: #fffaf3;
+  --ion-text-color: #2d2218;
+  --ion-toolbar-background: #fff7eb;
+  --ion-tab-bar-background: #fff7eb;
+  --ion-border-color: #e7d6c3;
+}
